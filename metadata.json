@@ -1,0 +1,5 @@
+{
+  "name": "Healthy Bihar AI",
+  "description": "AI-powered health triage and resource locator for Arwal District, Bihar.",
+  "requestFramePermissions": ["microphone"]
+}

@@ -1,0 +1,137 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the application",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The unique user ID from Firebase Auth"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The user's email address"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "The user's display name"
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "The user's profile photo URL"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["patient", "admin"],
+          "description": "The user's role"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the user account was created"
+        }
+      },
+      "required": ["uid", "email", "role", "createdAt"]
+    },
+    "TriageRecord": {
+      "title": "TriageRecord",
+      "description": "A record of an AI triage session",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The ID of the user who created this record"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the triage occurred"
+        },
+        "symptom": {
+          "type": "string",
+          "description": "The reported symptom"
+        },
+        "triageLevel": {
+          "type": "string",
+          "enum": ["Emergency", "Urgent", "General"],
+          "description": "The AI-determined triage level"
+        },
+        "explanation": {
+          "type": "string",
+          "description": "The AI's explanation for the triage level"
+        },
+        "feedback": {
+          "type": "string",
+          "enum": ["helpful", "not_helpful", null],
+          "description": "User feedback on the triage"
+        }
+      },
+      "required": ["userId", "timestamp", "symptom", "triageLevel", "explanation"]
+    },
+    "TelemedRequest": {
+      "title": "TelemedRequest",
+      "description": "A request for a live doctor consultation",
+      "type": "object",
+      "properties": {
+        "patientId": {
+          "type": "string",
+          "description": "The ID of the patient requesting the consult"
+        },
+        "patientName": {
+          "type": "string",
+          "description": "The name of the patient"
+        },
+        "problem": {
+          "type": "string",
+          "description": "The problem or health concern described by the patient"
+        },
+        "meetingId": {
+          "type": "string",
+          "description": "The unique Jitsi meeting ID"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["waiting", "in-progress", "completed", "rejected"],
+          "description": "The current status of the request"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the request was created"
+        },
+        "doctorId": {
+          "type": "string",
+          "description": "The ID of the doctor who accepted the request"
+        },
+        "scheduledJoinTime": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The time the doctor is scheduled to join the meeting"
+        }
+      },
+      "required": ["patientId", "patientName", "problem", "meetingId", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "Stores user profiles"
+    },
+    "/triageRecords/{recordId}": {
+      "schema": {
+        "$ref": "#/entities/TriageRecord"
+      },
+      "description": "Stores triage records for all users"
+    },
+    "/telemedRequests/{requestId}": {
+      "schema": {
+        "$ref": "#/entities/TelemedRequest"
+      },
+      "description": "Stores live doctor consultation requests"
+    }
+  }
+}

@@ -1,0 +1,174 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - uid: string (required) - The user's ID
+    //   - email: string (required) - The user's email
+    //   - displayName: string (optional) - The user's name
+    //   - photoURL: string (optional) - The user's photo
+    //   - role: string (required) - 'patient' or 'admin'
+    //   - createdAt: timestamp (required) - Account creation time
+    //
+    // Collection: triageRecords
+    // Document ID: {recordId}
+    // Fields:
+    //   - userId: string (required) - The ID of the user who created this record
+    //   - timestamp: timestamp (required) - When the triage occurred
+    //   - symptom: string (required) - The reported symptom
+    //   - triageLevel: string (required) - 'Emergency', 'Urgent', or 'General'
+    //   - explanation: string (required) - The AI's explanation
+    //   - feedback: string (optional) - 'helpful' or 'not_helpful'
+    //
+    // Collection: telemedRequests
+    // Document ID: {requestId}
+    // Fields:
+    //   - patientId: string (required) - The ID of the patient
+    //   - patientName: string (required) - The name of the patient
+    //   - meetingId: string (required) - The Jitsi meeting ID
+    //   - status: string (required) - 'waiting', 'in-progress', 'completed'
+    //   - createdAt: timestamp (required) - When the request was created
+    //   - doctorId: string (optional) - The ID of the doctor who accepted
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (
+          (request.auth.token.email in ["kumaripummy04@gmail.com", "magadhwalahai@gmail.com"] && request.auth.token.email_verified == true) ||
+          (request.auth.uid in ["o1w0p5NtoZQYHMjCMGHC319W1z32"]) ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+        );
+    }
+
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
+    }
+
+    function uidNotModified() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == resource.data.uid;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'role', 'createdAt']) &&
+             hasRequiredFields(['uid', 'email', 'role', 'createdAt']) &&
+             data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
+             data.email is string && isValidEmail(data.email) && data.email.size() < 100 &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() < 100)) &&
+             (!('photoURL' in data) || (data.photoURL is string && isValidUrl(data.photoURL) && data.photoURL.size() < 500)) &&
+             data.role in ['patient', 'admin'] &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidTriageRecord(data) {
+      return hasOnlyAllowedFields(['userId', 'timestamp', 'symptom', 'triageLevel', 'explanation', 'feedback']) &&
+             hasRequiredFields(['userId', 'timestamp', 'symptom', 'triageLevel', 'explanation']) &&
+             data.userId is string && data.userId.size() > 0 && data.userId.size() < 100 &&
+             data.timestamp is timestamp &&
+             data.symptom is string && data.symptom.size() > 0 && data.symptom.size() < 1000 &&
+             data.triageLevel in ['Emergency', 'Urgent', 'General'] &&
+             data.explanation is string && data.explanation.size() > 0 && data.explanation.size() < 2000 &&
+             (!('feedback' in data) || data.feedback == null || data.feedback in ['helpful', 'not_helpful']);
+    }
+
+    function isValidTelemedRequest(data) {
+      return hasOnlyAllowedFields(['patientId', 'patientName', 'problem', 'meetingId', 'status', 'createdAt', 'doctorId', 'scheduledJoinTime']) &&
+             hasRequiredFields(['patientId', 'patientName', 'problem', 'meetingId', 'status', 'createdAt']) &&
+             data.patientId is string && data.patientId.size() > 0 && data.patientId.size() < 100 &&
+             data.patientName is string && data.patientName.size() > 0 && data.patientName.size() < 100 &&
+             data.problem is string && data.problem.size() > 0 && data.problem.size() < 1000 &&
+             data.meetingId is string && data.meetingId.size() > 0 && data.meetingId.size() < 100 &&
+             data.status in ['waiting', 'in-progress', 'completed', 'rejected'] &&
+             data.createdAt is timestamp &&
+             (!('doctorId' in data) || (data.doctorId is string && data.doctorId.size() < 100)) &&
+             (!('scheduledJoinTime' in data) || (data.scheduledJoinTime is timestamp));
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && uidUnchanged() &&
+                    ((request.resource.data.role == 'patient') || isAdmin());
+      allow update: if isAuthenticated() && (
+                      (isOwner(userId) && isValidUser(request.resource.data) && uidNotModified() &&
+                       ((request.resource.data.role == resource.data.role) || isAdmin()) &&
+                       request.resource.data.createdAt == resource.data.createdAt) ||
+                      isAdmin()
+                    );
+      allow delete: if false;
+    }
+
+    match /triageRecords/{recordId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid && isValidTriageRecord(request.resource.data);
+      allow update: if isAuthenticated() && (
+                      (isDocOwner() && request.resource.data.userId == resource.data.userId && isValidTriageRecord(request.resource.data) &&
+                       request.resource.data.timestamp == resource.data.timestamp &&
+                       request.resource.data.symptom == resource.data.symptom &&
+                       request.resource.data.triageLevel == resource.data.triageLevel &&
+                       request.resource.data.explanation == resource.data.explanation) ||
+                      isAdmin()
+                    );
+      allow delete: if false;
+    }
+
+    match /telemedRequests/{requestId} {
+      allow get: if isAuthenticated() && (request.auth.uid == resource.data.patientId || isAdmin());
+      allow list: if isAdmin() || (isAuthenticated() && resource.data.patientId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.patientId == request.auth.uid && isValidTelemedRequest(request.resource.data);
+      allow update: if isAuthenticated() && (
+                      (isAdmin() && isValidTelemedRequest(request.resource.data)) ||
+                      (
+                        isValidTelemedRequest(request.resource.data) &&
+                        request.resource.data.patientId == resource.data.patientId &&
+                        request.resource.data.createdAt == resource.data.createdAt &&
+                        request.resource.data.meetingId == resource.data.meetingId &&
+                        request.auth.uid == resource.data.patientId && 
+                        request.resource.data.status == 'completed'
+                      )
+                    );
+      allow delete: if false;
+    }
+  }
+}
