@@ -3,6 +3,7 @@ import { auth, db, googleProvider } from '../firebase';
 import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc, Timestamp } from 'firebase/firestore';
 import { X, Mail, Lock, User, LogIn } from 'lucide-react';
+import { handleFirestoreError, OperationType } from '../firestoreUtils';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -44,7 +45,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
               createdAt: Timestamp.now()
             }, { merge: true });
           } catch (err) {
-            console.error('Failed to update user document with name:', err);
+            handleFirestoreError(err, OperationType.WRITE, 'users');
           }
         }
       }

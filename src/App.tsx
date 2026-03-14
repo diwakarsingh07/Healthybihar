@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, Type } from '@google/genai';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { QRCodeSVG } from 'qrcode.react';
-import { AlertTriangle, Activity, Info, MapPin, MessageSquare, Phone, Send, User, Stethoscope, ShieldAlert, Ambulance, ShieldPlus, HeartPulse, ThumbsUp, ThumbsDown, CheckCircle2, Shield, Clock, Lock, Unlock, X, LogIn, LogOut, Mic, Video, Heart, IndianRupee } from 'lucide-react';
+import Markdown from 'react-markdown';
+import { AlertTriangle, Activity, Info, MapPin, MessageSquare, Phone, Send, User, Stethoscope, ShieldAlert, Ambulance, ShieldPlus, HeartPulse, ThumbsUp, ThumbsDown, CheckCircle2, Shield, Clock, Lock, Unlock, X, LogIn, LogOut, Mic, Video, Heart, IndianRupee, Menu, ChevronRight, HelpCircle, ChevronDown, Mail } from 'lucide-react';
 import { hospitals, blocks, Block } from './data/hospitals';
 import AdminApp from './AdminApp';
 import AIChatbot from './AIChatbot';
@@ -54,7 +55,8 @@ const SCHEMES = [
 
 export default function App() {
   const [appMode, setAppMode] = useState<'patient' | 'admin'>('patient');
-  const [activeTab, setActiveTab] = useState<'triage' | 'locator' | 'analytics' | 'ambulance' | 'schemes' | 'telemed' | 'donation'>('triage');
+  const [activeTab, setActiveTab] = useState<'triage' | 'locator' | 'analytics' | 'ambulance' | 'schemes' | 'telemed' | 'donation' | 'about' | 'help'>('triage');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedBlock, setSelectedBlock] = useState<Block>('Arwal');
   
   // Donation State
@@ -94,6 +96,61 @@ export default function App() {
   const [showEmbeddedMeeting, setShowEmbeddedMeeting] = useState(false);
   const [telemedProblem, setTelemedProblem] = useState('');
 
+  // Help & Contact State
+  const [contactForm, setContactForm] = useState({ name: '', email: '', subject: '', message: '' });
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+
+  const handleSendEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSendingEmail(true);
+    setEmailStatus(null);
+
+    try {
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(contactForm),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setEmailStatus({ type: 'success', message: data.message || 'Message sent successfully!' });
+        setContactForm({ name: '', email: '', subject: '', message: '' });
+      } else {
+        setEmailStatus({ type: 'error', message: data.error || 'Failed to send message.' });
+      }
+    } catch (error) {
+      setEmailStatus({ type: 'error', message: 'An error occurred. Please try again.' });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const FAQS = [
+    {
+      q: "How does the AI Triage work?",
+      a: "Our AI Triage uses advanced medical language models to analyze your symptoms. Simply describe how you feel, and it will provide a preliminary assessment (Emergency, Urgent, or General) and guide you on the next steps."
+    },
+    {
+      q: "Is the AI diagnosis final?",
+      a: "No. The AI provides a preliminary triage based on common medical patterns. It is NOT a replacement for a professional medical diagnosis. Always consult a qualified doctor for medical advice."
+    },
+    {
+      q: "How do I find the nearest hospital?",
+      a: "Use the 'Resource Locator' tab. You can filter by your local block in Arwal to see a list of nearby hospitals, sub-centers, and pharmacies with their contact details."
+    },
+    {
+      q: "Can I talk to a real doctor?",
+      a: "Yes. If the AI determines your case is urgent, it may suggest a 'Live Doctor Consult'. You can also go directly to that tab to request a video consultation with an available medical professional."
+    },
+    {
+      q: "How can I support this initiative?",
+      a: "You can support us through the 'Support Us' tab by making a small donation via UPI. These funds are used to maintain the platform and improve local health infrastructure."
+    }
+  ];
+
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -101,9 +158,7 @@ export default function App() {
       try {
         await getDocFromServer(doc(db, 'test', 'connection'));
       } catch (error) {
-        if(error instanceof Error && error.message.includes('the client is offline')) {
-          console.error("Please check your Firebase configuration.");
-        }
+        handleFirestoreError(error, OperationType.GET, 'test/connection');
       }
     }
     testConnection();
@@ -337,59 +392,81 @@ export default function App() {
     if (!userMsg.trim()) return;
 
     const userMsgId = Date.now().toString() + Math.random().toString(36).substring(7);
-    setChatHistory(prev => [...prev, { id: userMsgId, role: 'user', content: userMsg }]);
+    setChatHistory(prev => [...prev, { id: userMsgId, role: 'user', text: userMsg }]);
     if (!overrideMsg) setSymptomInput('');
     setIsAnalyzing(true);
 
     try {
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: `Analyze the following medical symptom reported by a patient in Bihar (could be in Hindi, English, or Magahi). Determine the triage level as either 'Emergency', 'Urgent', or 'General'. Respond strictly in JSON format with two fields: 'level' (Emergency, Urgent, or General) and 'explanation' (a brief, empathetic explanation in the language the user used, advising them on what to do). Symptom: "${userMsg}"`,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              level: {
-                type: Type.STRING,
-                enum: ['Emergency', 'Urgent', 'General'],
-                description: "The triage level"
-              },
-              explanation: {
-                type: Type.STRING,
-                description: "Explanation and advice in the user's language"
-              }
-            },
-            required: ['level', 'explanation']
-          }
-        }
-      });
-
-      const resultText = response.text || '{}';
-      const result = JSON.parse(resultText);
-      
       const aiMsgId = Date.now().toString() + Math.random().toString(36).substring(7);
+      
+      // Add an empty AI message to the chat history that we will update
       setChatHistory(prev => [...prev, { 
         id: aiMsgId,
         role: 'ai', 
-        content: result.explanation,
-        triageLevel: result.level as TriageLevel
+        text: '',
+        isStreaming: true,
+        triageLevel: undefined
       }]);
+
+      const responseStream = await ai.models.generateContentStream({
+        model: 'gemini-3-flash-preview',
+        contents: `Analyze the following medical symptom reported by a patient in Bihar (could be in Hindi, English, or Magahi). 
+        First, determine the triage level as either 'Emergency', 'Urgent', or 'General'. 
+        Start your response EXACTLY with this format on the first line: [Triage: LEVEL] (where LEVEL is Emergency, Urgent, or General).
+        Then, on the next line, provide a brief, empathetic explanation in the language the user used, advising them on what to do.
+        Symptom: "${userMsg}"`,
+      });
+
+      let fullContent = '';
+      let triageLevel: TriageLevel | undefined = undefined;
+      let displayContent = '';
+
+      for await (const chunk of responseStream) {
+        const c = chunk as any;
+        if (c.text) {
+          fullContent += c.text;
+          
+          // Try to extract the triage level if we haven't yet
+          if (!triageLevel) {
+            const match = fullContent.match(/\[Triage:\s*(Emergency|Urgent|General)\]/i);
+            if (match) {
+              triageLevel = match[1] as TriageLevel;
+              // Remove the triage tag from the display content
+              displayContent = fullContent.replace(/\[Triage:\s*(Emergency|Urgent|General)\]/i, '').trim();
+            } else {
+              // If we don't have a match yet, just show what we have (might look weird briefly, but usually it's fast)
+              displayContent = fullContent;
+            }
+          } else {
+            displayContent = fullContent.replace(/\[Triage:\s*(Emergency|Urgent|General)\]/i, '').trim();
+          }
+
+          setChatHistory(prev => prev.map(msg => 
+            msg.id === aiMsgId ? { ...msg, text: displayContent, triageLevel } : msg
+          ));
+        }
+      }
       
+      setChatHistory(prev => prev.map(msg => 
+        msg.id === aiMsgId ? { ...msg, isStreaming: false } : msg
+      ));
+      setIsAnalyzing(false);
+
+      // Save to Firestore after streaming is complete
       try {
         await setDoc(doc(db, 'triageRecords', aiMsgId), {
           userId: user.uid,
           timestamp: Timestamp.now(),
           symptom: userMsg,
-          triageLevel: result.level as TriageLevel,
-          explanation: result.explanation,
+          triageLevel: triageLevel || 'General',
+          explanation: displayContent,
           feedback: null
         });
       } catch (error) {
         handleFirestoreError(error, OperationType.CREATE, 'triageRecords');
       }
       
-      if (result.level === 'Emergency') {
+      if (triageLevel === 'Emergency') {
         setShowDoctorChat(true);
       }
 
@@ -399,7 +476,8 @@ export default function App() {
       setChatHistory(prev => [...prev, { 
         id: errorMsgId,
         role: 'ai', 
-        content: "I'm sorry, I encountered an error analyzing your symptoms. Please try again or seek immediate medical help if you feel unwell.",
+        text: "I'm sorry, I encountered an error analyzing your symptoms. Please try again or seek immediate medical help if you feel unwell.",
+        isStreaming: false,
         triageLevel: 'General'
       }]);
     } finally {
@@ -445,37 +523,67 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans text-slate-900">
       
-      {/* Sidebar (Streamlit style) */}
-      <aside className="w-full md:w-72 bg-white border-r border-slate-200 flex flex-col shadow-sm z-10">
+      {/* Mobile Header */}
+      <div className="md:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-50">
+        <div className="flex items-center gap-2 text-emerald-600">
+          <Activity className="w-6 h-6" />
+          <span className="font-bold tracking-tight">Healthy Bihar AI</span>
+        </div>
+        <button 
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+        >
+          {isSidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
+      </div>
+
+      {/* Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <aside className={`
+        fixed inset-y-0 left-0 w-72 bg-white border-r border-slate-200 flex flex-col shadow-sm z-50 transition-transform duration-300 ease-in-out
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        md:relative md:translate-x-0 md:flex
+      `}>
         <div className="p-6 border-b border-slate-100">
-          <div className="flex items-center gap-3 text-emerald-600 mb-2">
+          <div className="flex items-center gap-3 text-emerald-600 mb-1">
             <Activity className="w-8 h-8" />
             <h1 className="text-2xl font-bold tracking-tight">Healthy Bihar AI</h1>
           </div>
-          <p className="text-sm text-slate-500 font-medium mb-4">Arwal District Health Network</p>
+          <p className="text-sm text-slate-500 font-medium mb-6">Arwal District Health Network</p>
           
           {/* Auth Section */}
           {user ? (
-            <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
-              <div className="flex items-center gap-2 overflow-hidden">
+            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-center justify-between group">
+              <div className="flex items-center gap-3 overflow-hidden">
                 {user.photoURL ? (
-                  <img src={user.photoURL} alt="Profile" className="w-8 h-8 rounded-full" referrerPolicy="no-referrer" />
+                  <img src={user.photoURL} alt="Profile" className="w-10 h-10 rounded-full border-2 border-white shadow-sm" referrerPolicy="no-referrer" />
                 ) : (
-                  <div className="w-8 h-8 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center shrink-0">
-                    <User className="w-4 h-4" />
+                  <div className="w-10 h-10 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center shrink-0 border-2 border-white shadow-sm">
+                    <User className="w-5 h-5" />
                   </div>
                 )}
                 <div className="truncate">
-                  <p className="text-xs font-semibold text-slate-900 truncate">{user.displayName || 'User'}</p>
-                  <p className="text-[10px] text-slate-500 truncate">{user.email}</p>
+                  <p className="text-sm font-bold text-slate-900 truncate">{user.displayName || 'User'}</p>
+                  <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
                 </div>
               </div>
-              <button onClick={handleLogout} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Sign Out">
+              <button 
+                onClick={handleLogout} 
+                className="p-2 text-slate-400 hover:text-red-500 hover:bg-white rounded-xl transition-all shadow-sm border border-transparent hover:border-slate-100"
+                title="Sign Out"
+              >
                 <LogOut className="w-4 h-4" />
               </button>
             </div>
           ) : (
-            <button onClick={handleLogin} className="w-full flex items-center justify-center gap-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-xl text-sm font-medium transition-colors">
+            <button onClick={handleLogin} className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-2xl text-sm font-bold transition-all shadow-md shadow-emerald-200 active:scale-95">
               <LogIn className="w-4 h-4" /> Sign In / Register
             </button>
           )}
@@ -483,57 +591,31 @@ export default function App() {
 
         <div className="p-6 flex-1 overflow-y-auto">
           <div className="mb-8">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Navigation</h2>
-            <nav className="space-y-1">
-              <button 
-                onClick={() => setActiveTab('triage')}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'triage' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
-              >
-                <MessageSquare className="w-4 h-4" />
-                AI Triage
-              </button>
-              <button 
-                onClick={() => setActiveTab('locator')}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'locator' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
-              >
-                <MapPin className="w-4 h-4" />
-                Resource Locator
-              </button>
-              <button 
-                onClick={() => setActiveTab('ambulance')}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'ambulance' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
-              >
-                <Ambulance className="w-4 h-4" />
-                Ambulance Directory
-              </button>
-              <button 
-                onClick={() => setActiveTab('telemed')}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'telemed' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
-              >
-                <Video className="w-4 h-4" />
-                Live Doctor Consult
-              </button>
-              <button 
-                onClick={() => setActiveTab('schemes')}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'schemes' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
-              >
-                <ShieldPlus className="w-4 h-4" />
-                Health Schemes
-              </button>
-              <button 
-                onClick={() => setActiveTab('analytics')}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'analytics' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
-              >
-                <BarChart className="w-4 h-4" />
-                District Analytics
-              </button>
-              <button 
-                onClick={() => setActiveTab('donation')}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${activeTab === 'donation' ? 'bg-emerald-50 text-emerald-700' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
-              >
-                <Heart className="w-4 h-4" />
-                Support Us
-              </button>
+            <h2 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.15em] mb-4 px-2">Navigation</h2>
+            <nav className="space-y-1.5">
+              {[
+                { id: 'triage', label: 'AI Triage', icon: MessageSquare },
+                { id: 'locator', label: 'Resource Locator', icon: MapPin },
+                { id: 'ambulance', label: 'Ambulance Directory', icon: Ambulance },
+                { id: 'telemed', label: 'Live Doctor Consult', icon: Video },
+                { id: 'schemes', label: 'Health Schemes', icon: ShieldPlus },
+                { id: 'analytics', label: 'District Analytics', icon: BarChart },
+                { id: 'donation', label: 'Support Us', icon: Heart },
+                { id: 'about', label: 'About Us', icon: Info },
+                { id: 'help', label: 'Help & FAQ', icon: HelpCircle },
+              ].map((item) => (
+                <button 
+                  key={item.id}
+                  onClick={() => {
+                    setActiveTab(item.id as any);
+                    setIsSidebarOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all ${activeTab === item.id ? 'bg-emerald-50 text-emerald-700 shadow-sm shadow-emerald-100/50' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                >
+                  <item.icon className={`w-5 h-5 ${activeTab === item.id ? 'text-emerald-600' : 'text-slate-400'}`} />
+                  {item.label}
+                </button>
+              ))}
             </nav>
           </div>
 
@@ -573,26 +655,58 @@ export default function App() {
           {/* Triage Tab */}
           {activeTab === 'triage' && (
             <div className="max-w-3xl mx-auto h-full flex flex-col">
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-slate-900">Multilingual AI Triage</h2>
-                <p className="text-slate-500 mt-1">Describe your symptoms in Hindi, English, or Magahi.</p>
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-900">Multilingual AI Triage</h2>
+                  <p className="text-slate-500 mt-1">Describe your symptoms in Hindi, English, or Magahi.</p>
+                </div>
+                {chatHistory.length > 0 && (
+                  <button 
+                    onClick={() => {
+                      setChatHistory([]);
+                      setShowDoctorChat(false);
+                    }}
+                    className="text-sm font-medium text-slate-500 hover:text-slate-800 bg-white border border-slate-200 hover:bg-slate-50 px-4 py-2 rounded-lg transition-colors"
+                  >
+                    New Consultation
+                  </button>
+                )}
               </div>
 
               <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden mb-4">
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                  {chatHistory.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 space-y-4">
-                      <Stethoscope className="w-12 h-12 text-slate-300" />
-                      <p>How are you feeling today?<br/>(à¤†à¤ª à¤•à¥ˆà¤¸à¤¾ à¤®à¤¹à¤¸à¥‚à¤¸ à¤•à¤° à¤°à¤¹à¥‡ à¤¹à¥ˆà¤‚? / à¤°à¤‰à¤µà¤¾ à¤•à¥ˆà¤¸à¤¨ à¤²à¤—à¤¤ à¤¬à¤¾?)</p>
+                <AIChatbot 
+                  inline={true}
+                  messages={chatHistory}
+                  isLoading={isAnalyzing}
+                  onSendMessage={handleAnalyzeSymptom}
+                  onClearChat={() => setChatHistory([])}
+                  onFeedback={handleFeedback}
+                  onVoiceChat={() => setShowVoiceChat(true)}
+                  emptyState={
+                    <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 space-y-6 p-6">
+                      <div className="flex flex-col items-center gap-3 mb-4">
+                        <div className="bg-emerald-50 p-5 rounded-[2rem] text-emerald-600 shadow-inner border border-emerald-100/50 animate-pulse-slow">
+                          <Activity className="w-16 h-16" />
+                        </div>
+                        <div className="space-y-1">
+                          <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Healthy Bihar AI</h2>
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.3em]">Arwal Health Network</p>
+                        </div>
+                      </div>
                       
-                      <div className="mt-8 w-full max-w-md">
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Quick Select Symptoms</p>
+                      <div className="space-y-2">
+                        <p className="text-lg font-bold text-slate-700">How are you feeling today?</p>
+                        <p className="text-sm font-medium text-slate-400 italic">(आप कैसा महसूस कर रहे हैं? / रउवा कैसन लगत बा?)</p>
+                      </div>
+                      
+                      <div className="mt-8 w-full max-w-md bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Quick Select Symptoms</p>
                         <div className="flex flex-wrap justify-center gap-2">
                           {QUICK_SYMPTOMS.map((symp, idx) => (
                             <button 
                               key={idx}
                               onClick={() => handleAnalyzeSymptom(symp)}
-                              className="bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-200 text-slate-600 hover:text-emerald-700 px-3 py-1.5 rounded-full text-sm transition-colors"
+                              className="bg-white hover:bg-emerald-600 border border-slate-200 hover:border-emerald-600 text-slate-600 hover:text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm hover:shadow-emerald-200 active:scale-95"
                             >
                               {symp}
                             </button>
@@ -600,92 +714,8 @@ export default function App() {
                         </div>
                       </div>
                     </div>
-                  ) : (
-                    chatHistory.map((msg, idx) => (
-                      <div key={idx} className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${msg.role === 'user' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-                          {msg.role === 'user' ? <User className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
-                        </div>
-                        <div className={`max-w-[80%] rounded-2xl px-5 py-3 ${msg.role === 'user' ? 'bg-emerald-600 text-white rounded-tr-sm' : 'bg-slate-100 text-slate-800 rounded-tl-sm'}`}>
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                          
-                          {msg.triageLevel && (
-                            <div className={`mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold
-                              ${msg.triageLevel === 'Emergency' ? 'bg-red-100 text-red-700 border border-red-200' : 
-                                msg.triageLevel === 'Urgent' ? 'bg-orange-100 text-orange-700 border border-orange-200' : 
-                                'bg-blue-100 text-blue-700 border border-blue-200'}`}
-                            >
-                              {msg.triageLevel === 'Emergency' && <ShieldAlert className="w-3 h-3" />}
-                              Triage Level: {msg.triageLevel}
-                            </div>
-                          )}
-
-                          {msg.role === 'ai' && (
-                            <div className="mt-3 pt-3 border-t border-slate-200/60 flex items-center justify-between">
-                              {msg.feedback ? (
-                                <span className="text-xs text-emerald-600 flex items-center gap-1 font-medium">
-                                  <CheckCircle2 className="w-3.5 h-3.5" /> Thanks for your feedback!
-                                </span>
-                              ) : (
-                                <div className="flex items-center gap-3">
-                                  <span className="text-xs text-slate-500 font-medium">Was this helpful?</span>
-                                  <div className="flex gap-1">
-                                    <button onClick={() => handleFeedback(msg.id, 'helpful')} className="p-1.5 hover:bg-emerald-100 text-slate-400 hover:text-emerald-600 rounded-md transition-colors" title="Helpful">
-                                      <ThumbsUp className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button onClick={() => handleFeedback(msg.id, 'not_helpful')} className="p-1.5 hover:bg-red-100 text-slate-400 hover:text-red-600 rounded-md transition-colors" title="Not Helpful">
-                                      <ThumbsDown className="w-3.5 h-3.5" />
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                  {isAnalyzing && (
-                    <div className="flex gap-4">
-                      <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
-                        <Activity className="w-4 h-4" />
-                      </div>
-                      <div className="bg-slate-100 text-slate-800 rounded-2xl rounded-tl-sm px-5 py-4 flex items-center gap-2">
-                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
-                      </div>
-                    </div>
-                  )}
-                  <div ref={chatEndRef} />
-                </div>
-
-                <div className="p-4 border-t border-slate-100 bg-slate-50">
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => setShowVoiceChat(true)}
-                      className="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-xl px-4 py-3 flex items-center justify-center transition-colors shadow-sm"
-                      title="Talk to AI Doctor"
-                    >
-                      <Mic className="w-5 h-5" />
-                    </button>
-                    <input 
-                      type="text" 
-                      value={symptomInput}
-                      onChange={(e) => setSymptomInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAnalyzeSymptom()}
-                      placeholder="Type symptoms here..."
-                      className="flex-1 border border-slate-300 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-                    />
-                    <button 
-                      onClick={() => handleAnalyzeSymptom()}
-                      disabled={isAnalyzing || !symptomInput.trim()}
-                      className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white rounded-xl px-5 py-3 flex items-center justify-center transition-colors"
-                    >
-                      <Send className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
+                  }
+                />
               </div>
 
               {/* Live Doctor Bridge */}
@@ -1138,6 +1168,176 @@ export default function App() {
                       <p className="text-slate-400">Please select an amount of at least â‚¹10 to generate the payment QR code.</p>
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* About Us Tab */}
+          {activeTab === 'about' && (
+            <div className="max-w-4xl mx-auto h-full flex flex-col space-y-8 animate-in fade-in slide-in-from-bottom-4">
+              <div className="bg-emerald-600 rounded-3xl p-8 text-white shadow-xl shadow-emerald-100 relative overflow-hidden">
+                <div className="relative z-10">
+                  <h2 className="text-3xl font-black tracking-tight mb-2">Our Mission</h2>
+                  <p className="text-emerald-50 max-w-xl leading-relaxed">
+                    Bridging the gap between technology and healthcare in Bihar. We aim to provide every citizen with instant health guidance and easy access to medical resources.
+                  </p>
+                </div>
+                <Activity className="absolute -right-8 -bottom-8 w-64 h-64 text-emerald-500/20 rotate-12" />
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                  <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center mb-4">
+                    <Heart className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">Why We Exist</h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    Bihar faces a significant challenge with doctor-to-patient ratios. Healthy Bihar AI uses cutting-edge LLMs to provide preliminary triage, helping patients understand their symptoms before they even reach a hospital.
+                  </p>
+                </div>
+
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                  <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center mb-4">
+                    <MapPin className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">Local Impact</h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    Starting with Arwal district, we are mapping every health sub-center, pharmacy, and ambulance service to ensure that in an emergency, you are never more than a click away from help.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-slate-900 rounded-3xl p-8 text-center text-white">
+                <h3 className="text-xl font-bold mb-4">Student Innovation</h3>
+                <p className="text-slate-400 text-sm max-w-2xl mx-auto leading-relaxed mb-6">
+                  This project is a Class 11 Innovation initiative, combining social responsibility with artificial intelligence. We believe that youth-led technology can transform rural healthcare delivery.
+                </p>
+                <div className="flex justify-center gap-4">
+                  <div className="px-4 py-2 bg-slate-800 rounded-full text-xs font-bold text-slate-300">#DigitalBihar</div>
+                  <div className="px-4 py-2 bg-slate-800 rounded-full text-xs font-bold text-slate-300">#AIForGood</div>
+                  <div className="px-4 py-2 bg-slate-800 rounded-full text-xs font-bold text-slate-300">#ArwalHealth</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Help & FAQ Tab */}
+          {activeTab === 'help' && (
+            <div className="max-w-4xl mx-auto h-full flex flex-col space-y-8 animate-in fade-in slide-in-from-bottom-4 pb-12">
+              <div className="mb-2">
+                <h2 className="text-2xl font-black text-slate-900">Help & FAQ</h2>
+                <p className="text-slate-500">Everything you need to know about using Healthy Bihar AI.</p>
+              </div>
+
+              <div className="grid lg:grid-cols-3 gap-8 items-start">
+                {/* FAQ Section */}
+                <div className="lg:col-span-2 space-y-4">
+                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
+                    <HelpCircle className="w-5 h-5 text-emerald-600" />
+                    Frequently Asked Questions
+                  </h3>
+                  
+                  {FAQS.map((faq, idx) => (
+                    <div 
+                      key={idx} 
+                      className="bg-white rounded-2xl border border-slate-200 overflow-hidden transition-all shadow-sm hover:shadow-md"
+                    >
+                      <button 
+                        onClick={() => setExpandedFaq(expandedFaq === idx ? null : idx)}
+                        className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-slate-50 transition-colors"
+                      >
+                        <span className="font-bold text-slate-700">{faq.q}</span>
+                        <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform ${expandedFaq === idx ? 'rotate-180' : ''}`} />
+                      </button>
+                      {expandedFaq === idx && (
+                        <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 animate-in slide-in-from-top-2">
+                          <p className="text-sm text-slate-600 leading-relaxed">{faq.a}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Contact Form Section */}
+                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 sticky top-4">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="bg-emerald-100 p-3 rounded-2xl text-emerald-600">
+                      <Mail className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900">Contact Us</h3>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Direct Support</p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleSendEmail} className="space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Your Name</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={contactForm.name}
+                        onChange={(e) => setContactForm({...contactForm, name: e.target.value})}
+                        placeholder="John Doe"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Email Address</label>
+                      <input 
+                        type="email" 
+                        required
+                        value={contactForm.email}
+                        onChange={(e) => setContactForm({...contactForm, email: e.target.value})}
+                        placeholder="john@example.com"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Subject</label>
+                      <input 
+                        type="text" 
+                        value={contactForm.subject}
+                        onChange={(e) => setContactForm({...contactForm, subject: e.target.value})}
+                        placeholder="How can we help?"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Message</label>
+                      <textarea 
+                        required
+                        rows={4}
+                        value={contactForm.message}
+                        onChange={(e) => setContactForm({...contactForm, message: e.target.value})}
+                        placeholder="Describe your issue or feedback..."
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-emerald-500 outline-none transition-all resize-none"
+                      />
+                    </div>
+
+                    {emailStatus && (
+                      <div className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in ${emailStatus.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                        {emailStatus.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                        {emailStatus.message}
+                      </div>
+                    )}
+
+                    <button 
+                      type="submit"
+                      disabled={isSendingEmail}
+                      className="w-full bg-slate-900 hover:bg-slate-800 text-white py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95"
+                    >
+                      {isSendingEmail ? (
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          Send Message
+                        </>
+                      )}
+                    </button>
+                  </form>
                 </div>
               </div>
             </div>

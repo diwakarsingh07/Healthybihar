@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { X, Download, Printer, Heart, CheckCircle2, ShieldCheck } from 'lucide-react';
-import { toPng } from 'html-to-image';
+import html2canvas from 'html2canvas';
 
 interface DonationReceiptProps {
   donorName: string;
@@ -36,13 +36,14 @@ export default function DonationReceipt({ donorName, amount, transactionId, date
         // Wait a tiny bit for any layout shifts
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        const dataUrl = await toPng(receiptRef.current, {
-          cacheBust: true,
+        const canvas = await html2canvas(receiptRef.current, {
           backgroundColor: '#ffffff',
-          pixelRatio: 3, // High resolution
-          skipFonts: false,
-          fontEmbedCSS: '', // Can help if fonts are missing
+          scale: 2, // High resolution
+          useCORS: true, // Allow cross-origin images
+          logging: false,
         });
+        
+        const dataUrl = canvas.toDataURL('image/png');
         
         receiptRef.current.classList.remove('is-capturing');
 
@@ -125,7 +126,7 @@ export default function DonationReceipt({ donorName, amount, transactionId, date
             ref={receiptRef}
             id="receipt-to-print"
             className="bg-white p-10 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden"
-            style={{ minHeight: '600px', width: '100%', maxWidth: '500px', margin: '0 auto' }}
+            style={{ minHeight: '600px', width: '500px', margin: '0 auto', backgroundColor: '#ffffff' }}
           >
             {/* Watermark */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none rotate-[-30deg]">
@@ -201,6 +202,7 @@ export default function DonationReceipt({ donorName, amount, transactionId, date
                     <img 
                       src="https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=https://arwal-health.network/verify" 
                       alt="Verify" 
+                      crossOrigin="anonymous"
                       className="w-12 h-12 mx-auto opacity-50"
                     />
                   </div>

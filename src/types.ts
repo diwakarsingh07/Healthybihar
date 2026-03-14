@@ -2,8 +2,9 @@ export type TriageLevel = 'Emergency' | 'Urgent' | 'General' | null;
 
 export interface ChatMessage {
   id: string;
-  role: 'user' | 'ai';
-  content: string;
+  role: 'user' | 'model' | 'ai';
+  text: string;
+  isStreaming?: boolean;
   triageLevel?: TriageLevel;
   feedback?: 'helpful' | 'not_helpful' | null;
 }
