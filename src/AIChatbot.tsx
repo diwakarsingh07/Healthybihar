@@ -118,7 +118,7 @@ export default function AIChatbot({
   };
 
   const chatContent = (
-    <div className={`flex flex-col h-full ${inline ? 'w-full' : 'w-80 sm:w-96 h-[550px] max-h-[85vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-5'}`}>
+    <div className={`flex flex-col h-full ${inline ? 'w-full' : 'w-80 sm:w-96 lg:w-[450px] h-[600px] max-h-[85vh] bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-5'}`}>
       {/* Header */}
       <div className={`px-4 py-3 flex items-center justify-between shrink-0 shadow-sm z-10 ${inline ? 'bg-white border-b border-slate-100' : 'bg-emerald-600 text-white'}`}>
         <div className="flex items-center gap-2">

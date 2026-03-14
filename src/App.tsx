@@ -654,7 +654,7 @@ export default function App() {
           
           {/* Triage Tab */}
           {activeTab === 'triage' && (
-            <div className="max-w-3xl mx-auto h-full flex flex-col">
+            <div className="max-w-5xl mx-auto h-full flex flex-col">
               <div className="mb-6 flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-900">Multilingual AI Triage</h2>
@@ -673,7 +673,7 @@ export default function App() {
                 )}
               </div>
 
-              <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden mb-4">
+              <div className="flex-1 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden mb-4 lg:min-h-[750px]">
                 <AIChatbot 
                   inline={true}
                   messages={chatHistory}
@@ -699,7 +699,7 @@ export default function App() {
                         <p className="text-sm font-medium text-slate-400 italic">(आप कैसा महसूस कर रहे हैं? / रउवा कैसन लगत बा?)</p>
                       </div>
                       
-                      <div className="mt-8 w-full max-w-md bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
+                      <div className="mt-8 w-full max-w-xl bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Quick Select Symptoms</p>
                         <div className="flex flex-wrap justify-center gap-2">
                           {QUICK_SYMPTOMS.map((symp, idx) => (
@@ -962,7 +962,7 @@ export default function App() {
 
           {/* Health Schemes Tab */}
           {activeTab === 'schemes' && (
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-4xl mx-auto pb-12">
               <div className="mb-8">
                 <h2 className="text-2xl font-bold text-slate-900">Government Health Schemes</h2>
                 <p className="text-slate-500 mt-1">Financial assistance and healthcare programs available for citizens.</p>
@@ -992,7 +992,7 @@ export default function App() {
 
           {/* Analytics Tab */}
           {activeTab === 'analytics' && (
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-4xl mx-auto pb-12">
               <div className="mb-8">
                 <h2 className="text-2xl font-bold text-slate-900">District Analytics</h2>
                 <p className="text-slate-500 mt-1">Staffing levels across Arwal district blocks.</p>
@@ -1044,7 +1044,7 @@ export default function App() {
 
           {/* Donation Tab */}
           {activeTab === 'donation' && (
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-4xl mx-auto pb-12">
               <div className="mb-8 text-center">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-rose-100 text-rose-600 rounded-full mb-4">
                   <Heart className="w-8 h-8 fill-current" />
@@ -1175,7 +1175,7 @@ export default function App() {
 
           {/* About Us Tab */}
           {activeTab === 'about' && (
-            <div className="max-w-4xl mx-auto h-full flex flex-col space-y-8 animate-in fade-in slide-in-from-bottom-4">
+            <div className="max-w-4xl mx-auto flex flex-col space-y-8 animate-in fade-in slide-in-from-bottom-4 pb-12">
               <div className="bg-emerald-600 rounded-3xl p-8 text-white shadow-xl shadow-emerald-100 relative overflow-hidden">
                 <div className="relative z-10">
                   <h2 className="text-3xl font-black tracking-tight mb-2">Our Mission</h2>
