@@ -2,7 +2,7 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-#Healthy Bihar~स्वस्थ बिहार, मजबूत बिहार..
+#Healthy Bihar~🇮🇳
 
 This contains everything you need to run your app locally.
 
@@ -37,4 +37,7 @@ npm run dev
 2. Create a feature branch.
 3. Commit changes and push to your fork.
 4. Open a Pull Request.
+
+
+#Project under development, underground development.!!
 
