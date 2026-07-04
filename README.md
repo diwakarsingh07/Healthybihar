@@ -2,19 +2,39 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+#Healthy Bihar~स्वस्थ बिहार, मजबूत बिहार..
 
 This contains everything you need to run your app locally.
 
 View your app in AI Studio: https://ai.studio/apps/bb2a5a44-769c-4f66-8425-8f5b4b3e3f23
 
-## Run Locally
+# Healthybihar 🏥
 
-**Prerequisites:**  Node.js
+An open-source, AI-powered healthcare application built with TypeScript, Vite, and Google Firebase/Gemini to improve data management and access in Bihar.
 
+## 🚀 Key Features
+*   **AI-Powered Insights:** Integrated with Google Gemini for automated healthcare analysis.
+*   **Real-time Database:** Backed by Cloud Firestore.
+*   **Secure & Fast:** Type-safe development with Vite optimization.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 🛠️ Tech Stack
+*   **Frontend:** TypeScript, Vite
+*   **Backend:** Node.js
+*   **Data & AI:** Firebase, Google Gemini API
+
+## 🔧 Setup Guide
+```bash
+git clone https://github.com
+cd Healthybihar
+npm install
+cp .env.example .env.local
+# Add your GEMINI_API_KEY to .env.local
+npm run dev
+```
+
+## 🤝 Contributing
+1. Fork the repo.
+2. Create a feature branch.
+3. Commit changes and push to your fork.
+4. Open a Pull Request.
+
