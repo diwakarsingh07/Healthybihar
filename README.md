@@ -5,7 +5,7 @@
 
 This contains everything you need to run your app locally.
 
-View your app in AI Studio: https://ai.studio/apps/bb2a5a44-769c-4f66-8425-8f5b4b3e3f23
+View our app in AI Studio: https://ai.studio/apps/bb2a5a44-769c-4f66-8425-8f5b4b3e3f23
 
 # Healthybihar 🏥
 
