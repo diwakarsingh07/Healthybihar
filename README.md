@@ -1,6 +1,5 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+<img width="1410" height="783" alt="bihar" src="https://github.com/user-attachments/assets/e68f4de0-c47a-4de7-be0f-574cc89a6732" />
+
 
 #Healthy Bihar~🇮🇳
 
