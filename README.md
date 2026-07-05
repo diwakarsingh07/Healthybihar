@@ -8,7 +8,8 @@ This contains everything you need to run your app locally.
 View our app in AI Studio: https://ai.studio/apps/bb2a5a44-769c-4f66-8425-8f5b4b3e3f23
 
 
-# support us <a href="https://starindustriestech.vercel.app/support.html">
+# support us 
+<a href="https://starindustriestech.vercel.app/support.html">
   <img src="https://img.shields.io/badge/Sponsor-Support_This_Project-ff69b4?style=for-the-badge&logo=heart&logoColor=white" alt="Sponsor Button">
 </a>
 
